@@ -132,15 +132,28 @@ git config --global user.name "$GITHUB_USERNAME"
 info "Инициализация проекта Trap..."
 forge init -t drosera-network/trap-foundry-template
 bun install
-forge build || warn "Предупреждения во время компиляции ожидаемы и могут быть проигнорированы."
+
+info "Компиляция Trap с использованием Docker..."
+docker run -v $(pwd):/app -w /app ghcr.io/foundry-rs/foundry:latest forge build || \
+  warn "Предупреждения во время компиляции ожидаемы и могут быть проигнорированы."
+
+info "Проверка доступности RPC..."
+curl -s -X POST -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' "$ETH_RPC_URL" | grep -q "result" || \
+  error "RPC URL недоступен или некорректен. Проверьте ваш Holesky RPC."
 
 info "Развертывание Trap..."
 export DROSERA_PRIVATE_KEY="$EVM_PRIVATE_KEY"
-drosera apply --eth-rpc-url "$ETH_RPC_URL" || {
-  warn "Повторная попытка развертывания Trap из-за возможных проблем с RPC..."
-  sleep 5
-  drosera apply --eth-rpc-url "$ETH_RPC_URL" || error "Развертывание Trap не удалось."
-}
+for attempt in {1..3}; do
+  if drosera apply --eth-rpc-url "$ETH_RPC_URL"; then
+    break
+  else
+    warn "Попытка $attempt: Развертывание Trap не удалось, повтор через 5 секунд..."
+    sleep 5
+    if [ $attempt -eq 3 ]; then
+      error "Развертывание Trap не удалось после 3 попыток. Проверьте RPC и кошелек."
+    fi
+  fi
+done
 echo "ofc" | drosera apply --eth-rpc-url "$ETH_RPC_URL"
 
 info "Trap развернут. Проверьте ваш Trap на https://app.drosera.io/ в разделе 'Traps Owned'."
