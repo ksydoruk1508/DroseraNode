@@ -5,7 +5,7 @@
 # Основано на гайде: https://github.com/0xmoei/Drosera-Network
 # Рекомендуемые системные требования: 2 ядра CPU, 4 ГБ RAM, 20 ГБ дискового пространства, Ubuntu 22.04+
 # Автор: Адаптировано для Drosera Network
-# Дата последнего обновления: 30 апреля 2025
+# Дата последнего обновления: 1 мая 2025
 
 # Выход при любой ошибке
 set -e
@@ -28,7 +28,7 @@ fi
 
 # Баннер
 echo -e "${GREEN}============================================================${NC}"
-echo -e "${GREEN}          TEST only! Скрипт настройки узла Drosera Network             ${NC}"
+echo -e "${GREEN}          Скрипт настройки узла Drosera Network             ${NC}"
 echo -e "${GREEN}============================================================${NC}"
 echo "Этот скрипт установит зависимости, Drosera CLI, Foundry, Bun,"
 echo "Docker, развернет Trap и настроит узел Operator."
@@ -82,8 +82,20 @@ docker run hello-world || error "Установка Docker не удалась."
 # 3. Установка Drosera CLI
 info "Установка Drosera CLI..."
 curl -L https://app.drosera.io/install | bash
+info "Обновление PATH для Drosera CLI..."
+export PATH=$PATH:/root/.drosera/bin
 source /root/.bashrc
-droseraup || error "Установка Drosera CLI не удалась."
+# Проверка доступности droseraup
+if ! command -v droseraup &> /dev/null; then
+  warn "Команда droseraup не найдена, пытаемся исправить..."
+  echo 'export PATH=$PATH:/root/.drosera/bin' >> /root/.bashrc
+  source /root/.bashrc
+  sleep 2
+fi
+if ! command -v droseraup &> /dev/null; then
+  error "Drosera CLI не установлен или команда droseraup недоступна."
+fi
+droseraup || error "Выполнение droseraup не удалось."
 info "Drosera CLI установлен. Версия: $(drosera --version)"
 
 # 4. Установка Foundry CLI
